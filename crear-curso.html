@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Crear Curso - Acme School</title>
+  <link rel="stylesheet" href="css/crear-curso.css">
+</head>
+<body>
+  <div class="contenedor">
+    <h1>Crear Curso</h1>
+    <form id="formCurso">
+      <input type="text" id="nombre" placeholder="Nombre del Curso" required />
+      <textarea id="descripcion" placeholder="Descripción del Curso" required></textarea>
+      <select id="imagen" required>
+        <option value="">Seleccione una imagen</option>
+        <option value="curso1.jpg">Matemáticas</option>
+        <option value="curso2.jpg">Programación</option>
+        <option value="curso3.jpg">Historia</option>
+      </select>
+      <button type="submit">Guardar Curso</button>
+    </form>
+
+    <h2>Agregar Estudiantes</h2>
+    <input type="text" id="busquedaEstudiante" placeholder="Buscar por documento, nombre o apellido" />
+    <ul id="listaEstudiantes"></ul>
+
+    <button id="volver">Volver al Dashboard</button>
+  </div>
+
+  <script type="module" src="js/crear-curso.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro de Usuario - Acme School</title>
+  <link rel="stylesheet" href="css/estilos2.css">
+</head>
+<body>
+  <div class="registro-container">
+    <h2>Registro de Usuario</h2>
+    <form id="registroForm">
+      <label for="id">Número de Identificación:</label>
+      <input type="text" id="id" name="id" required placeholder="Introduce tu número de identificación">
+
+      <label for="nombre">Nombre:</label>
+      <input type="text" id="nombre" name="nombre" required placeholder="Introduce tu nombre">
+
+      <label for="cargo">Cargo:</label>
+      <select id="cargo" name="cargo" required>
+        <option value="administrativo">Administrativo</option>
+        <option value="profesor">Profesor</option>
+      </select>
+
+      <label for="email">Email Corporativo:</label>
+      <input type="email" id="email" name="email" required placeholder="Introduce tu email corporativo">
+
+      <label for="password">Contraseña:</label>
+      <input type="password" id="password" name="password" required placeholder="Introduce tu contraseña">
+
+      <button type="submit">Registrar Usuario</button>
+    </form>
+  </div>
+
+  <script src="js/registro.js"></script>
+</body>
+</html>

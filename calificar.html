@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Calificar Estudiante</title>
+  <link rel="stylesheet" href="css/calificar.css">
+</head>
+<body>
+  <div class="contenedor">
+    <h1>Calificar Estudiante</h1>
+    
+    <input type="text" id="docEstudiante" placeholder="Documento del estudiante" />
+    <button id="buscar">Buscar</button>
+    
+    <form id="formNotas" style="display:none;">
+      <p id="infoEstudiante"></p>
+      <input type="number" id="nota1" placeholder="1ra nota (30%)" min="0" max="100" required />
+      <input type="number" id="nota2" placeholder="2da nota (30%)" min="0" max="100" required />
+      <input type="number" id="nota3" placeholder="3ra nota (40%)" min="0" max="100" required />
+      <p id="resultado"></p>
+      <button type="submit">Guardar Calificación</button>
+    </form>
+
+    <button id="volver">Volver al Dashboard</button>
+  </div>
+
+  <script type="module" src="js/calificar.js"></script>
+</body>
+</html>
