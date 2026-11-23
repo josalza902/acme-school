@@ -1,69 +1,74 @@
-let db;
+import { getDB, hashPassword, initDB, saveSession, verifyPassword } from './db.js';
 
-function initDB() {
+const loginForm = document.getElementById('loginForm');
+const setupForm = document.getElementById('setupForm');
+const status = document.getElementById('authStatus');
+const errorMessage = document.getElementById('error-message');
+
+function readRequest(request) {
   return new Promise((resolve, reject) => {
-    const requestDB = indexedDB.open('acmeSchoolDB', 2);  // Renombramos a 'requestDB'
-
-    requestDB.onupgradeneeded = function (event) {
-      db = event.target.result;
-
-      if (!db.objectStoreNames.contains('usuarios')) {
-        db.createObjectStore('usuarios', { keyPath: 'id', autoIncrement: true });
-      }
-
-      if (!db.objectStoreNames.contains('sesion')) {
-        db.createObjectStore('sesion', { keyPath: 'clave' });
-      }
-    };
-
-    requestDB.onsuccess = function () {
-      db = requestDB.result;
-
-      // Verificar si el admin ya existe
-      const tx = db.transaction('usuarios', 'readonly');
-      const store = tx.objectStore('usuarios');
-      const requestUsuarios = store.getAll();  // Renombramos a 'requestUsuarios'
-
-      requestUsuarios.onsuccess = function () {
-        const usuarios = requestUsuarios.result;
-        const adminExiste = usuarios.some(u => u.correo === 'admin@acmeschool.com');
-        
-        if (!adminExiste) {
-          // Si no existe, lo agregamos
-          const txAdd = db.transaction('usuarios', 'readwrite');
-          const storeAdd = txAdd.objectStore('usuarios');
-          const nuevoAdmin = {
-            identificacion: '0001',
-            nombre: 'Administrador General',
-            cargo: 'Administrativo',
-            correo: 'admin@acmeschool.com',
-            password: 'admin123'
-          };
-          storeAdd.add(nuevoAdmin);
-
-          console.log('✅ Admin creado por defecto: admin@acmeschool.com / admin123');
-        } else {
-          console.log('🔐 Admin ya existe');
-        }
-
-        // Redirigir a login o dashboard
-        location.href = 'index.html'; // Redirigir a la página de login
-      };
-
-      resolve();
-    };
-
-    requestDB.onerror = function (event) {
-      console.error("Error al abrir la base de datos:", event.target.error);
-      reject('Error al abrir la base de datos');
-    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
   });
 }
 
-function getDB() {
-  return db;
+function showMessage(message, isError = false) {
+  status.textContent = message;
+  status.style.color = isError ? '#b42318' : '';
+  if (errorMessage) errorMessage.style.display = 'none';
 }
 
-initDB().then(() => {
-  console.log('✅ Base de datos inicializada');
+await initDB();
+const users = getDB().transaction('usuarios', 'readonly').objectStore('usuarios');
+const existingUsers = await readRequest(users.getAll());
+
+if (existingUsers.length === 0) {
+  setupForm.hidden = false;
+  loginForm.hidden = true;
+  document.getElementById('authTitle').textContent = 'Configura la cuenta administrativa';
+}
+
+setupForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const nombre = setupForm.elements.nombre.value.trim();
+  const email = setupForm.elements.correo.value.trim().toLowerCase();
+  const password = setupForm.elements.password.value;
+
+  if (password.length < 10) {
+    showMessage('La contraseña debe tener al menos 10 caracteres.', true);
+    return;
+  }
+
+  try {
+    const passwordData = await hashPassword(password);
+    const admin = { email, nombre, cargo: 'administrativo', identificacion: 'admin', ...passwordData };
+    const transaction = getDB().transaction('usuarios', 'readwrite');
+    transaction.objectStore('usuarios').add(admin);
+    transaction.oncomplete = async () => {
+      await saveSession(admin);
+      location.href = 'dashboard.html';
+    };
+    transaction.onerror = () => showMessage('No se pudo crear la cuenta. Revisa si el correo ya existe.', true);
+  } catch (error) {
+    showMessage(error.message || 'No se pudo crear la cuenta.', true);
+  }
+});
+
+loginForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const email = loginForm.elements.correo.value.trim().toLowerCase();
+  const password = loginForm.elements.password.value;
+
+  try {
+    const user = await readRequest(getDB().transaction('usuarios', 'readonly').objectStore('usuarios').get(email));
+    if (!user || !(await verifyPassword(password, user.salt, user.passwordHash))) {
+      showMessage('Correo o contraseña incorrectos.', true);
+      return;
+    }
+
+    await saveSession(user);
+    location.href = 'dashboard.html';
+  } catch (error) {
+    showMessage(error.message || 'No se pudo iniciar sesión.', true);
+  }
 });

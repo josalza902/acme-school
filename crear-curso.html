@@ -9,9 +9,9 @@
   <div class="contenedor">
     <h1>Crear Curso</h1>
     <form id="formCurso">
-      <input type="text" id="nombre" placeholder="Nombre del Curso" required />
-      <textarea id="descripcion" placeholder="Descripción del Curso" required></textarea>
-      <select id="imagen" required>
+      <input type="text" id="nombre" name="nombre" placeholder="Nombre del Curso" required />
+      <textarea id="descripcion" name="descripcion" placeholder="Descripción del Curso" required></textarea>
+      <select id="imagen" name="imagen" required>
         <option value="">Seleccione una imagen</option>
         <option value="curso1.jpg">Matemáticas</option>
         <option value="curso2.jpg">Programación</option>
@@ -21,7 +21,11 @@
     </form>
 
     <h2>Agregar Estudiantes</h2>
-    <input type="text" id="busquedaEstudiante" placeholder="Buscar por documento, nombre o apellido" />
+    <label for="cursoActual">Curso:</label>
+    <select id="cursoActual" required>
+      <option value="">Selecciona un curso</option>
+    </select>
+    <input type="text" id="busquedaEstudiante" placeholder="Buscar por documento o nombre" />
     <ul id="listaEstudiantes"></ul>
 
     <button id="volver">Volver al Dashboard</button>

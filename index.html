@@ -8,7 +8,16 @@
 </head>
 <body>
   <div class="login-container">
-    <h2>Iniciar Sesión</h2>
+    <h2 id="authTitle">Iniciar Sesión</h2>
+    <form id="setupForm" hidden>
+      <label for="setupNombre">Nombre:</label>
+      <input type="text" id="setupNombre" name="nombre" required autocomplete="name">
+      <label for="setupCorreo">Correo electrónico:</label>
+      <input type="email" id="setupCorreo" name="correo" required autocomplete="email">
+      <label for="setupPassword">Contraseña (mínimo 10 caracteres):</label>
+      <input type="password" id="setupPassword" name="password" required minlength="10" autocomplete="new-password">
+      <button type="submit">Crear cuenta</button>
+    </form>
     <form id="loginForm">
       <label for="correo">Correo electrónico:</label>
       <input type="email" id="correo" name="correo" required placeholder="Introduce tu correo electrónico">
@@ -21,6 +30,7 @@
     <p id="error-message" style="color:red; display:none;">Credenciales inválidas. Por favor, intenta de nuevo.</p>
   </div>
 
-  <script src="js/main.js"></script> 
+  <p id="authStatus" role="status" aria-live="polite"></p>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

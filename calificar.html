@@ -9,10 +9,10 @@
   <div class="contenedor">
     <h1>Calificar Estudiante</h1>
     
-    <input type="text" id="docEstudiante" placeholder="Documento del estudiante" />
-    <button id="buscar">Buscar</button>
+    <input type="text" id="docEstudiante" placeholder="Documento del estudiante" required />
+    <button type="button" id="buscar">Buscar</button>
     
-    <form id="formNotas" style="display:none;">
+    <form id="formNotas" hidden>
       <p id="infoEstudiante"></p>
       <input type="number" id="nota1" placeholder="1ra nota (30%)" min="0" max="100" required />
       <input type="number" id="nota2" placeholder="2da nota (30%)" min="0" max="100" required />

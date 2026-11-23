@@ -1,111 +1,90 @@
-import { initDB, getDB } from './db.js';
+import { getDB, initDB, requireSession } from './db.js';
 
-let db;
-let estudiantes = [];
+await initDB();
+const session = await requireSession(['administrativo']);
+const courseForm = document.getElementById('formCurso');
+const courseSelect = document.getElementById('cursoActual');
+const searchInput = document.getElementById('busquedaEstudiante');
+const studentList = document.getElementById('listaEstudiantes');
 
-function crearCurso(e) {
-  e.preventDefault();
+function listCourses(selectedId = '') {
+  const request = getDB().transaction('cursos', 'readonly').objectStore('cursos').getAll();
+  request.onsuccess = () => {
+    courseSelect.replaceChildren(new Option('Selecciona un curso', ''));
+    request.result.forEach((course) => courseSelect.add(new Option(course.nombre, String(course.id))));
+    if (selectedId) courseSelect.value = String(selectedId);
+  };
+}
 
-  const nombre = document.getElementById('nombre').value.trim();
-  const descripcion = document.getElementById('descripcion').value.trim();
-  const imagen = document.getElementById('imagen').value;
+function findStudents() {
+  const query = searchInput.value.trim().toLowerCase();
+  const request = getDB().transaction('estudiantes', 'readonly').objectStore('estudiantes').getAll();
+  request.onsuccess = () => {
+    studentList.replaceChildren();
+    request.result
+      .filter((student) => `${student.id} ${student.nombre} ${student.email}`.toLowerCase().includes(query))
+      .forEach((student) => {
+        const item = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = `${student.nombre} (${student.id})`;
+        button.addEventListener('click', () => assignStudent(student));
+        item.append(button);
+        studentList.append(item);
+      });
+  };
+}
 
-  if (!nombre || !descripcion || !imagen) {
-    alert('Por favor, rellene todos los campos del curso.');
+function assignStudent(student) {
+  const courseId = Number(courseSelect.value);
+  if (!courseId) {
+    alert('Selecciona primero un curso.');
     return;
   }
 
-  const curso = {
-    nombre,
-    descripcion,
-    imagen,
-    estudiantes: [] // al principio vacío
-  };
-
-  const tx = db.transaction('cursos', 'readwrite');
-  const store = tx.objectStore('cursos');
-  store.add(curso);
-
-  alert('Curso creado exitosamente.');
-  document.getElementById('formCurso').reset();
-  document.getElementById('listaEstudiantes').innerHTML = '';
-}
-
-function buscarEstudiantes() {
-  const query = document.getElementById('busquedaEstudiante').value.toLowerCase();
-  const lista = document.getElementById('listaEstudiantes');
-  lista.innerHTML = '';
-
-  const tx = db.transaction('estudiantes', 'readonly');
-  const store = tx.objectStore('estudiantes');
-  const request = store.openCursor();
-
-  request.onsuccess = function (e) {
-    const cursor = e.target.result;
-    if (cursor) {
-      const estudiante = cursor.value;
-      const match =
-        estudiante.documento.includes(query) ||
-        estudiante.nombre.toLowerCase().includes(query) ||
-        estudiante.apellido.toLowerCase().includes(query);
-
-      if (match) {
-        const li = document.createElement('li');
-        li.textContent = `${estudiante.nombre} ${estudiante.apellido} (${estudiante.documento})`;
-        li.addEventListener('click', () => asignarEstudiante(estudiante.documento, li));
-        lista.appendChild(li);
-      }
-      cursor.continue();
+  const transaction = getDB().transaction('cursos', 'readwrite');
+  const store = transaction.objectStore('cursos');
+  const request = store.get(courseId);
+  let alreadyAssigned = false;
+  request.onsuccess = () => {
+    const course = request.result;
+    if (!course) return;
+    course.estudiantes = course.estudiantes || [];
+    if (course.estudiantes.includes(student.id)) {
+      alreadyAssigned = true;
+      return;
     }
+    course.estudiantes.push(student.id);
+    store.put(course);
   };
+  transaction.oncomplete = () => alert(
+    alreadyAssigned ? 'Ese estudiante ya está asignado a este curso.' : 'Estudiante asignado al curso.'
+  );
 }
 
-function asignarEstudiante(documento, li) {
-  const cursoTx = db.transaction('cursos', 'readwrite');
-  const cursoStore = cursoTx.objectStore('cursos');
-
-  cursoStore.getAll().onsuccess = function (e) {
-    const cursos = e.target.result;
-    const cursoActual = cursos[cursos.length - 1]; // último curso creado
-
-    if (!cursoActual.estudiantes.includes(documento)) {
-      cursoActual.estudiantes.push(documento);
-      cursoStore.put(cursoActual);
-      li.style.background = '#00ffcc';
-      li.style.color = '#000';
-    }
-  };
-}
-
-function verificarSesion() {
-  const tx = db.transaction('sesion', 'readonly');
-  const store = tx.objectStore('sesion');
-  const req = store.get('admin');
-
-  req.onsuccess = () => {
-    if (!req.result || req.result.cargo !== 'administrativo') {
-      alert('Solo los administrativos pueden crear cursos.');
-      location.href = 'index.html';
-    }
-  };
-}
-
-initDB().then(() => {
-  db = getDB();
-
-  if (!db.objectStoreNames.contains('cursos')) {
-    const upgrade = indexedDB.open('acmeSchoolDB', db.version + 1);
-    upgrade.onupgradeneeded = function (e) {
-      db = e.target.result;
-      db.createObjectStore('cursos', { keyPath: 'id', autoIncrement: true });
+if (session) {
+  listCourses();
+  courseForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const curso = {
+      nombre: courseForm.elements.nombre.value.trim(),
+      descripcion: courseForm.elements.descripcion.value.trim(),
+      imagen: courseForm.elements.imagen.value,
+      estudiantes: []
     };
-  }
+    const transaction = getDB().transaction('cursos', 'readwrite');
+    const request = transaction.objectStore('cursos').add(curso);
+    let createdId;
+    request.onsuccess = () => { createdId = request.result; };
+    transaction.oncomplete = () => {
+      courseForm.reset();
+      listCourses(createdId);
+    };
+    transaction.onerror = () => alert('No se pudo guardar el curso.');
+  });
 
-  verificarSesion();
-
-  document.getElementById('formCurso').addEventListener('submit', crearCurso);
-  document.getElementById('busquedaEstudiante').addEventListener('input', buscarEstudiantes);
+  searchInput.addEventListener('input', findStudents);
   document.getElementById('volver').addEventListener('click', () => {
     location.href = 'dashboard.html';
   });
-});
+}

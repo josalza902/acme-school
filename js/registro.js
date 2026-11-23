@@ -1,105 +1,34 @@
-let db;
+import { getDB, hashPassword, initDB, requireSession } from './db.js';
 
-function initDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('acmeSchoolDB', 2);
+await initDB();
+const session = await requireSession(['administrativo']);
+const form = document.getElementById('registroForm');
 
-    request.onupgradeneeded = function (event) {
-      db = event.target.result;
-      if (!db.objectStoreNames.contains('usuarios')) {
-        db.createObjectStore('usuarios', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('sesion')) {
-        db.createObjectStore('sesion', { keyPath: 'clave' });
-      }
-    };
+if (session && form) {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const identificacion = form.elements.id.value.trim();
+    const nombre = form.elements.nombre.value.trim();
+    const cargo = form.elements.cargo.value;
+    const email = form.elements.email.value.trim().toLowerCase();
+    const password = form.elements.password.value;
 
-    request.onsuccess = function () {
-      db = request.result;
-      resolve();
-    };
-
-    request.onerror = function (event) {
-      console.error("Error al abrir la base de datos:", event.target.error);
-      reject('Error al abrir la base de datos');
-    };
-  });
-}
-
-function checkAdmin() {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('sesion', 'readonly');
-    const store = tx.objectStore('sesion');
-    const request = store.get('admin');
-
-    request.onsuccess = function () {
-      if (request.result) {
-        resolve(request.result);
-      } else {
-        reject('No está autenticado como administrativo');
-      }
-    };
-
-    request.onerror = function () {
-      reject('Error al verificar sesión');
-    };
-  });
-}
-
-function registerUser() {
-  const form = document.getElementById('registroForm');
-  if (!form) return;
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const id = form.id.value;
-    const nombre = form.nombre.value;
-    const cargo = form.cargo.value;
-    const email = form.email.value;
-    const password = form.password.value;
-
-    // Verificar si todos los campos están llenos
-    if (!id || !nombre || !cargo || !email || !password) {
-      alert('Por favor, rellene todos los campos.');
+    if (password.length < 10) {
+      alert('La contraseña debe tener al menos 10 caracteres.');
       return;
     }
 
     try {
-      // Verificar que el usuario está autenticado como administrativo
-      const session = await checkAdmin();
-
-      if (session && session.cargo === 'administrativo') {
-        const tx = db.transaction('usuarios', 'readwrite');
-        const store = tx.objectStore('usuarios');
-
-        const nuevoUsuario = {
-          id: id,
-          nombre: nombre,
-          cargo: cargo,
-          email: email,
-          password: password,
-        };
-
-        const request = store.add(nuevoUsuario);
-
-        request.onsuccess = function () {
-          alert('Usuario registrado correctamente');
-          form.reset();
-        };
-
-        request.onerror = function () {
-          alert('Error al registrar el usuario');
-        };
-      } else {
-        alert('No tiene permiso para registrar usuarios');
-      }
+      const passwordData = await hashPassword(password);
+      const transaction = getDB().transaction('usuarios', 'readwrite');
+      transaction.objectStore('usuarios').add({ identificacion, nombre, cargo, email, ...passwordData });
+      transaction.oncomplete = () => {
+        alert('Usuario registrado correctamente.');
+        form.reset();
+      };
+      transaction.onerror = () => alert('No se pudo registrar el usuario; verifica si el correo ya existe.');
     } catch (error) {
-      alert(error);
+      alert(error.message || 'No se pudo registrar el usuario.');
     }
   });
 }
-
-initDB().then(() => {
-  registerUser();
-});

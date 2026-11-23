@@ -1,90 +1,68 @@
-import { initDB, getDB } from './db.js';
+import { getDB, initDB, requireSession } from './db.js';
 
-let db;
-let estudianteActual = null;
+await initDB();
+const session = await requireSession(['profesor']);
+let currentStudent;
 
-function validarNota(nota) {
-  return nota >= 0 && nota <= 100;
+function validarNota(value) {
+  return Number.isFinite(value) && value >= 0 && value <= 100;
 }
 
-function buscarEstudiante() {
-  const doc = document.getElementById('docEstudiante').value.trim();
-  if (!doc) return alert('Por favor, ingrese un documento');
-
-  const tx = db.transaction('estudiantes', 'readonly');
-  const store = tx.objectStore('estudiantes');
-  const req = store.get(doc);
-
-  req.onsuccess = function () {
-    if (req.result) {
-      estudianteActual = req.result;
-      document.getElementById('infoEstudiante').textContent = 
-        `${estudianteActual.nombre} ${estudianteActual.apellido}`;
-      document.getElementById('formNotas').style.display = 'block';
-    } else {
-      alert('Estudiante no encontrado');
-    }
-  };
-}
-
-function calcularYGuardar(e) {
-  e.preventDefault();
-
-  const nota1 = parseFloat(document.getElementById('nota1').value);
-  const nota2 = parseFloat(document.getElementById('nota2').value);
-  const nota3 = parseFloat(document.getElementById('nota3').value);
-
-  if (![nota1, nota2, nota3].every(n => !isNaN(n) && validarNota(n))) {
-    return alert('Las notas deben estar entre 0 y 100');
+function findStudent() {
+  const id = document.getElementById('docEstudiante').value.trim();
+  if (!id) {
+    alert('Escribe el número de identificación del estudiante.');
+    return;
   }
 
-  const definitiva = (nota1 * 0.3 + nota2 * 0.3 + nota3 * 0.4).toFixed(2);
-  document.getElementById('resultado').textContent = `Nota Final: ${definitiva}`;
-
-  const tx = db.transaction('calificaciones', 'readwrite');
-  const store = tx.objectStore('calificaciones');
-  store.put({
-    documento: estudianteActual.documento,
-    nombre: estudianteActual.nombre,
-    apellido: estudianteActual.apellido,
-    nota1, nota2, nota3,
-    definitiva: parseFloat(definitiva)
-  });
-
-  alert('Calificación guardada correctamente');
-  document.getElementById('formNotas').reset();
-  document.getElementById('formNotas').style.display = 'none';
-}
-
-function verificarSesion() {
-  const tx = db.transaction('sesion', 'readonly');
-  const store = tx.objectStore('sesion');
-  const req = store.get('admin');
-
-  req.onsuccess = () => {
-    if (!req.result || req.result.cargo !== 'profesor') {
-      alert('Solo los profesores pueden calificar.');
-      location.href = 'index.html';
+  const request = getDB().transaction('estudiantes', 'readonly').objectStore('estudiantes').get(id);
+  request.onsuccess = () => {
+    currentStudent = request.result;
+    if (!currentStudent) {
+      document.getElementById('formNotas').hidden = true;
+      alert('No se encontró el estudiante.');
+      return;
     }
+    document.getElementById('infoEstudiante').textContent = `${currentStudent.nombre} (${currentStudent.id})`;
+    document.getElementById('formNotas').hidden = false;
   };
 }
 
-initDB().then(() => {
-  db = getDB();
+if (session) {
+  const gradesForm = document.getElementById('formNotas');
+  document.getElementById('buscar').addEventListener('click', findStudent);
+  gradesForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!currentStudent) return;
 
-  if (!db.objectStoreNames.contains('calificaciones')) {
-    const upgrade = indexedDB.open('acmeSchoolDB', db.version + 1);
-    upgrade.onupgradeneeded = function (e) {
-      db = e.target.result;
-      db.createObjectStore('calificaciones', { keyPath: 'documento' });
+    const grades = [1, 2, 3].map((number) => Number(document.getElementById(`nota${number}`).value));
+    if (!grades.every(validarNota)) {
+      alert('Cada nota debe estar entre 0 y 100.');
+      return;
+    }
+
+    const [nota1, nota2, nota3] = grades;
+    const definitiva = Number((nota1 * 0.3 + nota2 * 0.3 + nota3 * 0.4).toFixed(2));
+    document.getElementById('resultado').textContent = `Nota final: ${definitiva.toFixed(2)}`;
+
+    const transaction = getDB().transaction('calificaciones', 'readwrite');
+    transaction.objectStore('calificaciones').put({
+      estudianteId: currentStudent.id,
+      nombre: currentStudent.nombre,
+      nota1,
+      nota2,
+      nota3,
+      definitiva
+    });
+    transaction.oncomplete = () => {
+      alert('Calificación guardada correctamente.');
+      gradesForm.reset();
+      gradesForm.hidden = true;
+      currentStudent = undefined;
     };
-  }
-
-  verificarSesion();
-
-  document.getElementById('buscar').addEventListener('click', buscarEstudiante);
-  document.getElementById('formNotas').addEventListener('submit', calcularYGuardar);
+    transaction.onerror = () => alert('No se pudo guardar la calificación.');
+  });
   document.getElementById('volver').addEventListener('click', () => {
     location.href = 'dashboard.html';
   });
-});
+}

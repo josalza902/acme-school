@@ -1,57 +1,12 @@
-let db;
+import { clearSession, initDB, requireSession } from './db.js';
 
-function initDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('acmeSchoolDB', 2);
+await initDB();
+const session = await requireSession();
 
-    request.onsuccess = function () {
-      db = request.result;
-      resolve();
-    };
-
-    request.onerror = function (event) {
-      console.error("Error al abrir la base de datos:", event.target.error);
-      reject('Error al abrir la base de datos');
-    };
+if (session) {
+  document.getElementById('nombreUsuario').textContent = session.nombre;
+  document.getElementById('cerrarSesion').addEventListener('click', async () => {
+    await clearSession();
+    location.href = 'index.html';
   });
 }
-
-function verificarSesion() {
-  const tx = db.transaction('sesion', 'readonly');
-  const store = tx.objectStore('sesion');
-  const request = store.get('admin');
-
-  request.onsuccess = function () {
-    if (!request.result) {
-      alert('Debe iniciar sesión primero.');
-      location.href = 'index.html';
-    }
-  };
-
-  request.onerror = function () {
-    alert('Error al verificar sesión.');
-    location.href = 'index.html';
-  };
-}
-
-function cerrarSesion() {
-  const tx = db.transaction('sesion', 'readwrite');
-  const store = tx.objectStore('sesion');
-  const request = store.delete('admin');
-
-  request.onsuccess = function () {
-    alert('Sesión cerrada correctamente.');
-    location.href = 'index.html';
-  };
-
-  request.onerror = function () {
-    alert('No se pudo cerrar la sesión.');
-  };
-}
-
-initDB().then(() => {
-  verificarSesion();
-
-  const btnCerrar = document.getElementById('cerrarSesion');
-  btnCerrar.addEventListener('click', cerrarSesion);
-});
